@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>门诊费用注销系统 - 整合版</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Microsoft YaHei", sans-serif;
+        }
+        body {
+            background-color: #f0f0f0;
+            padding: 10px;
+        }
+        .container {
+            display: flex;
+            height: 90vh;
+            border: 1px solid #ccc;
+            background-color: #fff;
+        }
+        .left-panel {
+            width: 300px;
+            border-right: 1px solid #ccc;
+            background-color: #f8f9fa;
+            padding: 10px;
+            overflow-y: auto;
+        }
+        .left-panel h3 {
+            margin-bottom: 10px;
+            color: #333;
+            font-size: 14px;
+        }
+        .tree-item {
+            margin-left: 15px;
+            margin-bottom: 5px;
+            font-size: 13px;
+            cursor: pointer;
+            line-height: 1.6;
+        }
+        .tree-item.category {
+            font-weight: bold;
+            margin-left: 0;
+            color: #2c3e50;
+        }
+        .tree-item.sub-category {
+            margin-left: 25px;
+            color: #34495e;
+            font-weight: 500;
+        }
+        .tree-item.sub-sub-category {
+            margin-left: 35px;
+            color: #2980b9;
+        }
+        .tree-item.item {
+            margin-left: 45px;
+            color: #7f8c8d;
+        }
+        /* 统一颜色：已申请注销、已检查、已发药 全部蓝紫色 */
+        .tree-item.item.checked,
+        .tree-item.item.canceled {
+            color: #9370db;
+            font-weight: 500;
+        }
+        .tree-item:hover {
+            background-color: #e8f4fc;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+        .tree-item.active {
+            background-color: #d0e8f9;
+            padding: 2px 4px;
+            border-radius: 3px;
+            color: #2980b9;
+        }
+        .right-panel {
+            flex: 1;
+            padding: 10px;
+            overflow-y: auto;
+        }
+        .detail-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        .detail-table th, .detail-table td {
+            border: 1px solid #ddd;
+            padding: 6px 8px;
+            text-align: center;
+        }
+        .detail-table th {
+            background-color: #e9ecef;
+            font-weight: normal;
+        }
+        .detail-table tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+        .detail-table .positive {
+            color: green;
+            font-weight: bold;
+        }
+        .detail-table .negative {
+            color: red;
+            font-weight: bold;
+        }
+        .del-btn {
+            padding: 2px 6px;
+            background: #dc3545;
+            color: #fff;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-top: 1px solid #ccc;
+            margin-top: 10px;
+        }
+        .footer .info {
+            font-size: 13px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+        .footer input {
+            border: 1px solid #ccc;
+            padding: 3px 6px;
+            font-size: 13px;
+            outline: none;
+            border-radius: 3px;
+        }
+        .footer button {
+            padding: 6px 15px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            margin-left: 8px;
+        }
+        .footer button.primary {
+            background-color: #28a745;
+            color: white;
+            border-color: #28a745;
+        }
+        .footer button.danger {
+            background-color: #dc3545;
+            color: white;
+            border-color: #dc3545;
+        }
+        .footer button:hover {
+            opacity: 0.9;
+        }
+
+        /* 申请记录弹窗样式 */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            display: none;
+        }
+        .modal {
+            width: 900px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            padding: 20px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        .modal-header {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            text-align: center;
+            color: #2c3e50;
+        }
+        .modal-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            margin-bottom: 20px;
+        }
+        .modal-table th, .modal-table td {
+            border: 1px solid #ddd;
+            padding: 8px 10px;
+            text-align: center;
+        }
+        .modal-table th {
+            background-color: #e9ecef;
+            font-weight: normal;
+        }
+        .modal-table tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+        .result-pass {
+            color: green;
+            font-weight: bold;
+        }
+        .result-error {
+            color: orange;
+            font-weight: bold;
+        }
+        .result-fail {
+            color: red;
+            font-weight: bold;
+        }
+        .modal-bottom {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .filter-bar {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .filter-bar input {
+            padding: 4px 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+        .filter-bar button {
+            padding: 4px 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        .modal-footer button {
+            padding: 6px 18px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            background-color: #6c757d;
+            color: white;
+            border-color: #6c757d;
+        }
+        .modal-footer button:hover {
+            opacity: 0.9;
+        }
+
+        /* 明细弹窗样式 */
+        .detail-modal {
+            width: 700px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            padding: 20px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        .detail-modal-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            margin-bottom: 20px;
+        }
+        .detail-modal-table th, .detail-modal-table td {
+            border: 1px solid #ddd;
+            padding: 8px 10px;
+            text-align: center;
+        }
+        .detail-modal-table th {
+            background-color: #e9ecef;
+            font-weight: normal;
+        }
+        /* 明细弹窗按钮容器样式 */
+        .detail-modal-btn-group {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 20px;
+        }
+
+        /* 取消申请确认弹窗样式 */
+        .confirm-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            display: none;
+        }
+        .confirm-modal {
+            width: 450px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            padding: 20px;
+            text-align: center;
+        }
+        .confirm-modal p {
+            font-size: 14px;
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+        .confirm-modal .btn-group {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+        }
+        .confirm-modal .btn-group button {
+            padding: 6px 20px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        .confirm-modal .btn-group .confirm-btn {
+            background-color: #dc3545;
+            color: white;
+            border-color: #dc3545;
+        }
+        .confirm-modal .btn-group .cancel-btn {
+            background-color: #6c757d;
+            color: white;
+            border-color: #6c757d;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="left-panel">
+            <h3>泉州市骨科专科医院患者已收费项目列表：</h3>
+
+            <!-- 治疗类 -->
+            <div class="tree-item category" onclick="toggleCategory('treatGroup')">
+                治疗类
+            </div>
+            <div id="treatGroup">
+                <div class="tree-item item canceled" ondblclick="checkItemStatus('treatment','挂号费', this)">2026-04-28 16:18|挂号费(已收费，已申请注销)</div>
+                <div class="tree-item item checked" ondblclick="checkItemStatus('treatment','急诊诊查费', this)">2026-04-28 16:18|急诊诊查费(已收费，已结算，已检查)</div>
+                <div class="tree-item item" ondblclick="checkItemStatus('treatment','普通理疗费', this)">2026-04-28 16:20|普通理疗费(已收费)</div>
+                <div class="tree-item item checked" ondblclick="checkItemStatus('treatment','康复训练费', this)">2026-04-28 16:25|康复训练费(已收费，已检查)</div>
+                <div class="tree-item item canceled" ondblclick="checkItemStatus('treatment','针灸治疗费', this)">2026-04-28 16:30|针灸治疗费(未收费，已申请注销)</div>
+                <div class="tree-item item" ondblclick="checkItemStatus('treatment','推拿按摩费', this)">2026-04-28 16:35|推拿按摩费(已收费，已结算)</div>
+                <div class="tree-item item checked" ondblclick="checkItemStatus('treatment','物理治疗费', this)">2026-04-28 16:40|物理治疗费(已收费，已检查)</div>
+            </div>
+
+            <!-- 药品类 -->
+            <div class="tree-item category" onclick="toggleCategory('drugGroup')">
+                药品类
+            </div>
+            <div id="drugGroup">
+                <div class="tree-item sub-category" onclick="toggleCategory('agreePrescription')">
+                    2026-04-28 16:18|E20260428020005|协定方
+                </div>
+                <div id="agreePrescription">
+                    <div class="tree-item sub-sub-category" ondblclick="addWholePrescription('agreeWholePrescription')">整张处方</div>
+                    <div id="agreeWholePrescription">
+                        <div class="tree-item item" ondblclick="checkItemStatus('medicine','柴胡疏肝汤', this)">柴胡疏肝汤(已收费)</div>
+                        <div class="tree-item item canceled" ondblclick="checkItemStatus('medicine','创伤性关节炎防风外洗方', this)">创伤性关节炎防风外洗方(未收费，已申请注销)</div>
+                        <div class="tree-item item checked" ondblclick="checkItemStatus('medicine','独活祛风丸', this)">独活祛风丸(已收费，已结算，已发药)</div>
+                        <div class="tree-item item checked" ondblclick="checkItemStatus('medicine','桂附益肾方', this)">桂附益肾方(已收费，已检查)</div>
+                        <div class="tree-item item" ondblclick="checkItemStatus('medicine','活血止痛汤', this)">活血止痛汤(已收费)</div>
+                        <div class="tree-item item canceled" ondblclick="checkItemStatus('medicine','消肿化瘀方', this)">消肿化瘀方(已收费，已申请注销)</div>
+                        <div class="tree-item item checked" ondblclick="checkItemStatus('medicine','接骨续筋汤', this)">接骨续筋汤(已收费，已结算，已发药)</div>
+                        <div class="tree-item item checked" ondblclick="checkItemStatus('medicine','补肾健骨方', this)">补肾健骨方(已收费，已检查)</div>
+                        <div class="tree-item item" ondblclick="checkItemStatus('medicine','祛风除湿汤', this)">祛风除湿汤(未收费)</div>
+                    </div>
+                </div>
+
+                <div class="tree-item sub-category" onclick="toggleCategory('chineseHerb')">
+                    2026-04-28 16:18|Z20260428020005|中草药
+                </div>
+                <div id="chineseHerb">
+                    <div class="tree-item sub-sub-category" ondblclick="addWholePrescription('herbWholePrescription')">整张处方</div>
+                    <div id="herbWholePrescription">
+                        <div class="tree-item item" ondblclick="checkItemStatus('medicine','扁豆花', this)">扁豆花(未收费)</div>
+                        <div class="tree-item item canceled" ondblclick="checkItemStatus('medicine','白果仁', this)">白果仁(已收费，已申请注销)</div>
+                        <div class="tree-item item checked" ondblclick="checkItemStatus('medicine','薄荷', this)">薄荷(已收费，已结算，已发药)</div>
+                        <div class="tree-item item checked" ondblclick="checkItemStatus('medicine','百合', this)">百合(已收费，已检查)</div>
+                        <div class="tree-item item" ondblclick="checkItemStatus('medicine','当归', this)">当归(已收费)</div>
+                        <div class="tree-item item canceled" ondblclick="checkItemStatus('medicine','川芎', this)">川芎(未收费，已申请注销)</div>
+                        <div class="tree-item item checked" ondblclick="checkItemStatus('medicine','红花', this)">红花(已收费，已结算，已发药)</div>
+                        <div class="tree-item item checked" ondblclick="checkItemStatus('medicine','桃仁', this)">桃仁(已收费，已检查)</div>
+                        <div class="tree-item item" ondblclick="checkItemStatus('medicine','甘草', this)">甘草(未收费)</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 检查类 -->
+            <div class="tree-item category" onclick="toggleCategory('checkGroup')">
+                检查类
+            </div>
+            <div id="checkGroup">
+                <div class="tree-item item checked" ondblclick="checkItemStatus('check','CT增强扫描', this)">2026-04-28 16:18|CT增强扫描(已收费，已检查)</div>
+                <div class="tree-item item canceled" ondblclick="checkItemStatus('check','CT薄层扫描', this)">2026-04-28 16:18|CT薄层扫描(未收费，已申请注销)</div>
+                <div class="tree-item item" ondblclick="checkItemStatus('check','CT增强薄层扫描', this)">2026-04-28 16:18|CT增强薄层扫描(已收费，已结算)</div>
+                <div class="tree-item item checked" ondblclick="checkItemStatus('check','X光片拍摄', this)">2026-04-28 16:18|X光片拍摄(已收费，已检查)</div>
+                <div class="tree-item item canceled" ondblclick="checkItemStatus('check','核磁共振(MRI)', this)">2026-04-28 16:18|核磁共振(MRI)(未收费，已申请注销)</div>
+                <div class="tree-item item" ondblclick="checkItemStatus('check','B超检查', this)">2026-04-28 16:18|B超检查(已收费，已结算)</div>
+                <div class="tree-item item checked" ondblclick="checkItemStatus('check','血常规检查', this)">2026-04-28 16:18|血常规检查(已收费，已检查)</div>
+                <div class="tree-item item" ondblclick="checkItemStatus('check','尿常规检查', this)">2026-04-28 16:18|尿常规检查(已收费)</div>
+            </div>
+        </div>
+
+        <div class="right-panel">
+            <table class="detail-table">
+                <thead>
+                    <tr>
+                        <th>选择</th>
+                        <th>操作</th>
+                        <th>申请时间</th>
+                        <th>申请原因</th>
+                        <th>名称</th>
+                        <th>规格</th>
+                        <th>单位</th>
+                        <th>单价</th>
+                        <th>数量</th>
+                        <th>金额</th>
+                        <th>开单医生</th>
+                        <th>医生科室</th>
+                        <th>申请人</th>
+                        <th>冲销申请</th>
+                        <th>医保结算</th>
+                        <th>电子发票</th>
+                    </tr>
+                </thead>
+                <tbody id="detail-body"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="footer">
+        <div class="info">
+            <span>收费时间：</span>
+            <input type="datetime-local" id="timeStart" value="2026-04-28T16:18:00">
+            <input type="datetime-local" id="timeEnd" value="2026-04-28T17:29:00">
+            <span>帐户卡号：350577777777777510</span>
+            <span>姓名：张三</span>
+            <button class="primary" onclick="readCard()">读卡</button>
+        </div>
+        <div class="buttons">
+            <button onclick="showApplyRecord()">申请记录</button>
+            <button class="danger" onclick="cancelFee()">注销申请</button>
+            <button>退出</button>
+        </div>
+    </div>
+
+    <!-- 申请记录弹窗 -->
+    <div class="modal-overlay" id="recordModal">
+        <div class="modal">
+            <div class="modal-header">费用注销申请记录</div>
+            <table class="modal-table">
+                <thead>
+                    <tr>
+                        <th>注销申请时间</th>
+                        <th>申请单号</th>
+                        <th>申请人</th>
+                        <th>费用金额</th>
+                        <th>费用明细</th>
+                        <th>申请结果</th>
+                    </tr>
+                </thead>
+                <tbody id="recordTableBody"></tbody>
+            </table>
+            <div class="modal-bottom">
+                <div class="filter-bar">
+                    <input type="datetime-local" id="modalStart">
+                    <input type="datetime-local" id="modalEnd">
+                    <input type="text" id="applyNoInput" placeholder="请输入申请单号">
+                    <button onclick="filterRecord()">筛选</button>
+                </div>
+                <div class="modal-footer">
+                    <button onclick="closeModal()">退出</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 明细弹窗 -->
+    <div class="modal-overlay" id="detailModal">
+        <div class="detail-modal">
+            <div class="modal-header">费用明细详情</div>
+            <table class="detail-modal-table">
+                <thead>
+                    <tr>
+                        <th>处理结果</th>
+                        <th>开单时间</th>
+                        <th>开单医生</th>
+                        <th>收费名称</th>
+                        <th>数量</th>
+                        <th>单价</th>
+                        <th>总金额</th>
+                    </tr>
+                </thead>
+                <tbody id="detailModalBody"></tbody>
+            </table>
+            <div class="detail-modal-btn-group">
+                <button onclick="printDetail()">打印</button>
+                <button onclick="closeDetailModal()">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 取消申请确认弹窗 -->
+    <div class="confirm-modal-overlay" id="confirmCancelModal">
+        <div class="confirm-modal">
+            <p>取消申请仅可取消需收费处处理的项目，如已处理的项目已经冲销无法回退！</p>
+            <div class="btn-group">
+                <button class="confirm-btn" onclick="confirmCancelApply()">确定</button>
+                <button class="cancel-btn" onclick="closeConfirmModal()">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const feeData = {
+            treatment: {
+                '挂号费': { name: '挂号费', spec: '', unit: '次', price: 15.00, qty: 1, amount: 15.00, doctor: '林医生', dept: '九病区|北峰骨病科', writeOffApply: '未申请', medicalSettlement: '未结算', electronicInvoice: '未请领' },
+                '急诊诊查费': { name: '急诊诊查费', spec: '', unit: '次', price: 32.00, qty: 1, amount: 32.00, doctor: '林医生', dept: '九病区|北峰骨病科', writeOffApply: '未申请', medicalSettlement: '未结算', electronicInvoice: '未请领' },
+                '普通理疗费': { name: '普通理疗费', spec: '', unit: '次', price: 45.00, qty: 1, amount: 45.00, doctor: '林医生', dept: '九病区|北峰骨病科', writeOffApply: '未申请', medicalSettlement: '未结算', electronicInvoice: '未请领' },
+                '康复训练费': { name: '康复训练费', spec: '', unit: '次', price: 60.00, qty: 1, amount: 60.00, doctor: '林医生', dept: '九病区|北峰骨病科', writeOffApply: '未申请', medicalSettlement: '未结算', electronicInvoice: '未请领' },
+                '针灸治疗费': { name: '针灸治疗费', spec: '', unit: '次', price: 80.00, qty: 1, amount: 80.00, doctor: '林医生', dept: '九病区|北峰骨病科', writeOffApply: '未申请', medicalSettlement: '未结算', electronicInvoice: '未请领' },
+                '推拿按摩费': { name: '推拿按摩费', spec: '', unit: '次', price: 50.00, qty: 1, amount: 50.00, doctor: '林医生', dept: '九病区|北峰骨病科', writeOffApply: '未申请', medicalSettlement: '未结算', electronicInvoice: '未请领' },
+                '物理治疗费': { name: '物理治疗费', spec: '', unit: '次', price: 75.00, qty: 1, amount: 75.00, doctor: '林医生', dept: '九病区|北峰骨病科', writeOffApply: '未申请', medicalSettlement: '未结算', electronicInvoice: '未请领' }
+            },
+            medicine: {
+                '柴胡疏肝汤': { name: '柴胡疏肝汤', spec: '剂', unit: '帖', price: 24.42, qty: 3, amount: 73.26, doctor: '林医生', dept: '九病区|北峰骨病科', writeOffApply: '未申请', medicalSettlement: '未结算', electronicInvoice: '未请领' },
+                '创伤性关节炎防风外洗方': { name: '创伤性关节炎防风外洗方', spec: '剂', unit: '剂', price: 48.77, qty: 1, amount: 48.77, doctor: '林医生', dept: '九病区|北峰骨病科', writeOffApply: '未申请', medicalSettlement: '未结算', electronicInvoice: '未请领' },
+                '独活祛风丸': { name: '独活祛风丸', spec: '60g', unit: '瓶', price: 24.70, qty: 1, amount: 24.70, doctor: '林医生', dept: '九病区|北峰骨病科', writeOffApply: '未申请', medicalSettlement: '未结算', electronicInvoice: '未请领' },
+                '桂附益肾方': { name: '桂附益肾方', spec: '4小包*1剂', unit: '剂', price: 23.92, qty: 1, amount: 23.92, doctor: '林医生', dept: '九病区|北峰骨病科', writeOffApply: '未申请', medicalSettlement: '未结算', electronicInvoice: '未请领' },
+                '扁豆花': { name: '扁豆花', spec: '10g', unit: 'g', price: 0.85, qty: 20, amount: 17.00, doctor: '林医生', dept: '九病区|北峰骨病科', writeOffApply: '未申请', medicalSettlement: '未结算', electronicInvoice: '未请领' },
+                '白果仁': { name: '白果仁', spec: '10g', unit: 'g', price: 1.20, qty: 15, amount: 18.00, doctor: '林医生', dept: '九病区|北峰骨病科', writeOffApply: '未申请', medicalSettlement: '未结算', electronicInvoice: '未请领' },
+                '薄荷': { name: '薄荷', spec: '10g', unit: 'g', price: 0.60, qty: 10, amount: 6.00, doctor: '林医生', dept: '九病区|北峰骨病科', writeOffApply: '未申请', medicalSettlement: '未结算', electronicInvoice: '未请领' },
+                '百合': { name: '百合', spec: '10g', unit: 'g', price: 1.50, qty: 20, amount: 30.00, doctor: '林医生', dept: '九病区|北峰骨病科', writeOffApply: '未申请', medicalSettlement: '未结算', electronicInvoice: '未请领' },
+                '活血止痛汤': { name: '活血止痛汤', spec: '剂', unit: '帖', price: 32.50, qty: 5, amount: 162.50, doctor: '林医生', dept: '九病区|北峰骨病科', writeOffApply: '未申请', medicalSettlement: '未结算', electronicInvoice: '未请领' },
+                '消肿化瘀方': { name: '消肿化瘀方', spec: '剂', unit: '剂', price: 45.80, qty: 1, amount: 45.80, doctor: '林医生', dept: '九病区|北峰骨病科', writeOffApply: '未申请', medicalSettlement: '未结算', electronicInvoice: '未请领' },
+                '接骨续筋汤': { name: '接骨续筋汤', spec: '剂', unit: '帖', price: 52.30, qty: 7, amount: 366.10, doctor: '林医生', dept: '九病区|北峰骨病科', writeOffApply: '未申请', medicalSettlement: '未结算', electronicInvoice: '未请领' },
+                '补肾健骨方': { name: '补肾健骨方', spec: '4小包*1剂', unit: '剂', price: 28.60, qty: 1, amount: 28.60, doctor: '林医生', dept: '九病区|北峰骨病科', writeOffApply: '未申请', medicalSettlement: '未结算', electronicInvoice: '未请领' },
+                '祛风除湿汤': { name: '祛风除湿汤', spec: '剂', unit: '帖', price: 36.90, qty: 3, amount: 110.70, doctor: '林医生', dept: '九病区|北峰骨病科', writeOffApply: '未申请', medicalSettlement: '未结算', electronicInvoice: '未请领' },
+                '当归': { name: '当归', spec: '10g', unit: 'g', price: 1.80, qty: 30, amount: 54.00, doctor: '林医生', dept: '九病区|北峰骨病科', writeOffApply: '未申请', medicalSettlement: '未结算', electronicInvoice: '未请领' },
+                '川芎': { name: '川芎', spec: '10g', unit: 'g', price: 2.50, qty: 20, amount: 50.00, doctor: '林医生', dept: '九病区|北峰骨病科', writeOffApply: '未申请', medicalSettlement: '未结算', electronicInvoice: '未请领' },
+                '红花': { name: '红花', spec: '10g', unit: 'g', price: 3.20, qty: 15, amount: 48.00, doctor: '林医生', dept: '九病区|北峰骨病科', writeOffApply: '未申请', medicalSettlement: '未结算', electronicInvoice: '未请领' },
+                '桃仁': { name: '桃仁', spec: '10g', unit: 'g', price: 2.80, qty: 25, amount: 70.00, doctor: '林医生', dept: '九病区|北峰骨病科', writeOffApply: '未申请', medicalSettlement: '未结算', electronicInvoice: '未请领' },
+                '甘草': { name: '甘草', spec: '10g', unit: 'g', price: 0.50, qty: 40, amount: 20.00, doctor: '林医生', dept: '九病区|北峰骨病科', writeOffApply: '未申请', medicalSettlement: '未结算', electronicInvoice: '未请领' }
+            },
+            check: {
+                'CT增强扫描': { name: 'CT增强扫描', spec: '', unit: '次', price: 180.00, qty: 1, amount: 180.00, doctor: '林医生', dept: '九病区|北峰骨病科', writeOffApply: '未申请', medicalSettlement: '未结算', electronicInvoice: '未请领' },
+                'CT薄层扫描': { name: 'CT薄层扫描', spec: '', unit: '次', price: 45.00, qty: 1, amount: 45.00, doctor: '林医生', dept: '九病区|北峰骨病科', writeOffApply: '未申请', medicalSettlement: '未结算', electronicInvoice: '未请领' },
+                'CT增强薄层扫描': { name: 'CT增强薄层扫描', spec: '', unit: '次', price: 60.00, qty: 1, amount: 60.00, doctor: '林医生', dept: '九病区|北峰骨病科', writeOffApply: '未申请', medicalSettlement: '未结算', electronicInvoice: '未请领' },
+                'X光片拍摄': { name: 'X光片拍摄', spec: '', unit: '次', price: 90.00, qty: 1, amount: 90.00, doctor: '林医生', dept: '九病区|北峰骨病科', writeOffApply: '未申请', medicalSettlement: '未结算', electronicInvoice: '未请领' },
+                '核磁共振(MRI)': { name: '核磁共振(MRI)', spec: '', unit: '次', price: 580.00, qty: 1, amount: 580.00, doctor: '林医生', dept: '九病区|北峰骨病科', writeOffApply: '未申请', medicalSettlement: '未结算', electronicInvoice: '未请领' },
+                'B超检查': { name: 'B超检查', spec: '', unit: '次', price: 120.00, qty: 1, amount: 120.00, doctor: '林医生', dept: '九病区|北峰骨病科', writeOffApply: '未申请', medicalSettlement: '未结算', electronicInvoice: '未请领' },
+                '血常规检查': { name: '血常规检查', spec: '', unit: '次', price: 35.00, qty: 1, amount: 35.00, doctor: '林医生', dept: '九病区|北峰骨病科', writeOffApply: '未申请', medicalSettlement: '未结算', electronicInvoice: '未请领' },
+                '尿常规检查': { name: '尿常规检查', spec: '', unit: '次', price: 25.00, qty: 1, amount: 25.00, doctor: '林医生', dept: '九病区|北峰骨病科', writeOffApply: '未申请', medicalSettlement: '未结算', electronicInvoice: '未请领' }
+            }
+        };
+
+        const canceledItemInfo = {
+            '挂号费': { applyNo: 'XZ20260428003', applyTime: '2026-04-28 10:25:30', applyDoctor: '张三' },
+            '创伤性关节炎防风外洗方': { applyNo: 'XZ20260428004', applyTime: '2026-04-28 11:10:20', applyDoctor: '张三' },
+            '白果仁': { applyNo: 'XZ20260428005', applyTime: '2026-04-28 14:05:15', applyDoctor: '张三' },
+            'CT薄层扫描': { applyNo: 'XZ20260428006', applyTime: '2026-04-28 15:30:40', applyDoctor: '张三' },
+            '针灸治疗费': { applyNo: 'XZ20260428007', applyTime: '2026-04-28 16:00:00', applyDoctor: '张三' },
+            '消肿化瘀方': { applyNo: 'XZ20260428008', applyTime: '2026-04-28 16:10:00', applyDoctor: '张三' },
+            '川芎': { applyNo: 'XZ20260428009', applyTime: '2026-04-28 16:20:00', applyDoctor: '张三' },
+            '核磁共振(MRI)': { applyNo: 'XZ20260428010', applyTime: '2026-04-28 16:30:00', applyDoctor: '张三' }
+        };
+
+        const applyRecordData = [
+            { applyTime: '2026-04-27 09:15:30', applyNo: 'XZ20260427001', applicant: '林医生', feeAmount: 15.00, applyResult: '通过' },
+            { applyTime: '2026-04-27 10:20:15', applyNo: 'XZ20260427002', applicant: '张小明', feeAmount: 180.00, applyResult: '异常' },
+            { applyTime: '2026-04-27 14:30:45', applyNo: 'XZ20260427003', applicant: '李小红', feeAmount: 73.26, applyResult: '医保冲销失败' },
+            { applyTime: '2026-04-28 08:45:20', applyNo: 'XZ20260428001', applicant: '林医生', feeAmount: 32.00, applyResult: '通过' },
+            { applyTime: '2026-04-28 11:10:50', applyNo: 'XZ20260428002', applicant: '王医生', feeAmount: 30.00, applyResult: '异常' },
+            { applyTime: '2026-04-28 11:10:50', applyNo: 'XZ20260423233', applicant: '好医生', feeAmount: 370.00, applyResult: '未处理' },
+            { applyTime: '2026-04-28 08:45:20', applyNo: 'XZ20260428001', applicant: '林医生', feeAmount: 32.00, applyResult: '通过' },
+            { applyTime: '2026-04-28 11:10:50', applyNo: 'XZ20260428002', applicant: '王医生', feeAmount: 30.00, applyResult: '异常' },
+            { applyTime: '2026-04-28 11:10:50', applyNo: 'XZ20260423233', applicant: '好医生', feeAmount: 370.00, applyResult: '未处理' },
+            { applyTime: '2026-04-28 11:10:50', applyNo: 'XZ20260423233', applicant: '好医生', feeAmount: 370.00, applyResult: '已取消' }
+        ];
+
+        const detailData = [
+            { handleResult: '收费处处理', billTime: '2026-04-27 08:30:00', doctor: '林医生', feeName: '普通挂号费', qty: 1, price: 15.00, totalAmount: 15.00 },
+            { handleResult: '收费处处理', billTime: '2026-04-27 09:45:00', doctor: '林医生', feeName: 'CT增强扫描', qty: 1, price: 180.00, totalAmount: 180.00 },
+            { handleResult: '收费处处理', billTime: '2026-04-27 13:10:00', doctor: '林医生', feeName: '柴胡疏肝汤', qty: 3, price: 24.42, totalAmount: 73.26 },
+            { handleResult: '收费处处理', billTime: '2026-04-28 08:00:00', doctor: '林医生', feeName: '急诊诊查费', qty: 1, price: 32.00, totalAmount: 32.00 },
+            { handleResult: '收费处处理', billTime: '2026-04-28 10:30:00', doctor: '王医生', feeName: '百合', qty: 20, price: 1.50, totalAmount: 30.00 },
+            { handleResult: '收费处处理', billTime: '2026-04-28 14:20:00', doctor: '陈医生', feeName: 'CT薄层扫描', qty: 1, price: 45.00, totalAmount: 45.00 },
+            { handleResult: '收费处处理', billTime: '2026-04-28 15:10:00', doctor: '陈医生', feeName: '独活祛风丸', qty: 1, price: 24.70, totalAmount: 24.70 },
+            { handleResult: '已处理', billTime: '2026-04-28 16:05:00', doctor: '林医生', feeName: '扁豆花', qty: 20, price: 0.85, totalAmount: 17.00 },
+            { handleResult: '已处理', billTime: '2026-04-28 16:40:00', doctor: '王医生', feeName: '创伤性关节炎外洗方', qty: 1, price: 48.77, totalAmount: 48.77 },
+            { handleResult: '已处理', billTime: '2026-04-28 17:15:00', doctor: '林医生', feeName: 'CT增强薄层扫描', qty: 1, price: 60.00, totalAmount: 60.00 },
+            { handleResult: '已处理', billTime: '2026-04-28 14:20:00', doctor: '陈医生', feeName: 'CT薄层扫描', qty: 1, price: 45.00, totalAmount: 45.00 },
+            { handleResult: '已处理', billTime: '2026-04-28 15:10:00', doctor: '陈医生', feeName: '独活祛风丸', qty: 1, price: 24.70, totalAmount: 24.70 },
+            { handleResult: '已处理', billTime: '2026-04-28 16:05:00', doctor: '林医生', feeName: '扁豆花', qty: 20, price: 0.85, totalAmount: 17.00 },
+            { handleResult: '已处理', billTime: '2026-04-28 16:40:00', doctor: '王医生', feeName: '创伤性关节炎外洗方', qty: 1, price: 48.77, totalAmount: 48.77 },
+            { handleResult: '已处理', billTime: '2026-04-28 17:15:00', doctor: '林医生', feeName: 'CT增强薄层扫描', qty: 1, price: 60.00, totalAmount: 60.00 }
+        ];
+
+        // 存储当前要取消的申请索引
+        let currentCancelIndex = -1;
+        let itemList = [];
+
+        // 生成随机时间（年月日时分秒）
+        function getRandomDateTime() {
+            const year = 2026;
+            const month = String(Math.floor(Math.random() * 12) + 1).padStart(2, '0');
+            const day = String(Math.floor(Math.random() * 28) + 1).padStart(2, '0');
+            const hour = String(Math.floor(Math.random() * 24)).padStart(2, '0');
+            const minute = String(Math.floor(Math.random() * 60)).padStart(2, '0');
+            const second = String(Math.floor(Math.random() * 60)).padStart(2, '0');
+            return `${year}-${month}-${day}T${hour}:${minute}:${second}`;
+        }
+
+        // 页面加载时为申请记录弹窗的时间选择框赋值随机时间
+        window.onload = function() {
+            document.getElementById('modalStart').value = getRandomDateTime();
+            document.getElementById('modalEnd').value = getRandomDateTime();
+        };
+
+        function readCard() {
+            alert('读卡成功，患者信息已加载');
+        }
+
+        function toggleCategory(groupId) {
+            const group = document.getElementById(groupId);
+            group.style.display = group.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function formatFullDateTime(date) {
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
+            const h = String(date.getHours()).padStart(2, '0');
+            const mi = String(date.getMinutes()).padStart(2, '0');
+            const s = String(date.getSeconds()).padStart(2, '0');
+            return `${y}-${m}-${d} ${h}:${mi}:${s}`;
+        }
+
+        function deleteItem(index) {
+            itemList.splice(index, 1);
+            renderTable();
+        }
+
+        function checkItemStatus(type, name, el) {
+            const itemText = el.innerText;
+            const itemId = name;
+
+            if (el.classList.contains('canceled')) {
+                const info = canceledItemInfo[itemId];
+                if (info) {
+                    alert(`费用已经申请注销，无法重复申请，申请单号${info.applyNo}，申请时间：${info.applyTime} 申请医生：${info.applyDoctor}`);
+                } else {
+                    alert(`费用已经申请注销，无法重复申请，申请单号XZ20260428000，申请时间：2026-04-28 09:00:00 申请医生：张三`);
+                }
+                return;
+            }
+
+            if (itemText.includes('已检查') || itemText.includes('已发药')) {
+                alert('业务科室已经受理，请前往业务科申请注销');
+                return;
+            }
+
+            addItem(type, name);
+        }
+
+        function addItem(type, name) {
+            let data = feeData[type][name];
+            if (!data) return;
+            itemList.push({
+                ...data,
+                applyTime: formatFullDateTime(new Date()),
+                applyReason: '患者要求',
+                applicant: data.doctor,
+                isCancel: false
+            });
+            renderTable();
+        }
+
+        function addWholePrescription(groupId) {
+            const group = document.getElementById(groupId);
+            const items = group.querySelectorAll('.item');
+            let newList = [];
+            items.forEach(el => {
+                if (el.classList.contains('canceled')) {
+                    const itemName = el.innerText.trim().replace(/\(.*\)/, '');
+                    const info = canceledItemInfo[itemName];
+                    if (info) {
+                        alert(`费用【${itemName}】已经申请注销，无法重复申请，申请单号${info.applyNo}，申请时间：${info.applyTime} 申请医生：${info.applyDoctor}`);
+                    } else {
+                        alert(`费用【${itemName}】已经申请注销，无法重复申请，申请单号XZ20260428000，申请时间：2026-04-28 09:00:00 申请医生：张三`);
+                    }
+                    return;
+                }
+
+                if (el.innerText.includes('已检查') || el.innerText.includes('已发药')) {
+                    alert(`费用【${el.innerText.trim().replace(/\(.*\)/, '')}】业务科室已经受理，请前往业务科申请注销`);
+                    return;
+                }
+
+                const itemName = el.innerText.trim().replace(/\(.*\)/, '');
+                addItem('medicine', itemName);
+            });
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('detail-body');
+            tbody.innerHTML = '';
+            itemList.forEach((item, index) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><input type="checkbox" ${item.isCancel ? 'checked' : ''} onchange="itemList[${index}].isCancel = this.checked"></td>
+                    <td><button class="del-btn" onclick="deleteItem(${index})">删除</button></td>
+                    <td>${item.applyTime}</td>
+                    <td>${item.applyReason}</td>
+                    <td>${item.name}</td>
+                    <td>${item.spec}</td>
+                    <td>${item.unit}</td>
+                    <td>${item.price.toFixed(2)}</td>
+                    <td>${item.qty}</td>
+                    <td>${item.amount.toFixed(2)}</td>
+                    <td>${item.doctor}</td>
+                    <td>${item.dept}</td>
+                    <td>${item.applicant}</td>
+                    <td>${item.writeOffApply}</td>
+                    <td>${item.medicalSettlement}</td>
+                    <td>${item.electronicInvoice}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function cancelFee() {
+            const selectedItems = itemList.filter(item => item.isCancel);
+            if (selectedItems.length === 0) {
+                alert('请选择要注销的项目');
+                return;
+            }
+            alert(`已成功提交${selectedItems.length}项费用注销申请，申请单号：XZ${new Date().getTime()}`);
+            itemList = itemList.filter(item => !item.isCancel);
+            renderTable();
+        }
+
+        function showApplyRecord() {
+            const modal = document.getElementById('recordModal');
+            modal.style.display = 'flex';
+            renderRecordTable(applyRecordData);
+        }
+
+        function renderRecordTable(data) {
+            const tbody = document.getElementById('recordTableBody');
+            tbody.innerHTML = '';
+            data.forEach((item, index) => {
+                const tr = document.createElement('tr');
+                let resultHtml = '';
+                if (item.applyResult === '未处理') {
+                    resultHtml = `
+                        <span>未处理</span>
+                        <button style="padding:2px 6px;font-size:12px;margin-left:5px;background:#dc3545;color:#fff;border:none;border-radius:3px;cursor:pointer;" onclick="showCancelConfirm(${index})">取消申请</button>
+                    `;
+                } else if (item.applyResult === '通过') {
+                    resultHtml = `<span class="result-pass">通过</span>`;
+                } else if (item.applyResult === '异常') {
+                    resultHtml = `<span class="result-error">异常</span>`;
+                } else if (item.applyResult === '医保冲销失败') {
+                    resultHtml = `<span class="result-fail">医保冲销失败</span>`;
+                } else if (item.applyResult === '已取消') {
+                    resultHtml = `<span style="color:#6c757d;">已取消</span>`;
+                } else {
+                    resultHtml = item.applyResult;
+                }
+                tr.innerHTML = `
+                    <td>${item.applyTime}</td>
+                    <td>${item.applyNo}</td>
+                    <td>${item.applicant}</td>
+                    <td>${item.feeAmount.toFixed(2)}</td>
+                    <td><button style="padding:2px 6px;font-size:12px;" onclick="showDetailModal()">查看明细</button></td>
+                    <td>${resultHtml}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // 显示取消申请确认弹窗
+        function showCancelConfirm(index) {
+            currentCancelIndex = index;
+            const confirmModal = document.getElementById('confirmCancelModal');
+            confirmModal.style.display = 'flex';
+        }
+
+        // 确认取消申请
+        function confirmCancelApply() {
+            if (currentCancelIndex >= 0 && currentCancelIndex < applyRecordData.length) {
+                applyRecordData[currentCancelIndex].applyResult = '已取消';
+                renderRecordTable(applyRecordData);
+            }
+            closeConfirmModal();
+        }
+
+        // 关闭确认弹窗
+        function closeConfirmModal() {
+            const confirmModal = document.getElementById('confirmCancelModal');
+            confirmModal.style.display = 'none';
+            currentCancelIndex = -1;
+        }
+
+        function filterRecord() {
+            const start = document.getElementById('modalStart').value;
+            const end = document.getElementById('modalEnd').value;
+            const applyNo = document.getElementById('applyNoInput').value.trim();
+            
+            let filteredData = [...applyRecordData];
+            
+            if (start) {
+                const startDate = new Date(start);
+                filteredData = filteredData.filter(item => new Date(item.applyTime) >= startDate);
+            }
+            
+            if (end) {
+                const endDate = new Date(end);
+                filteredData = filteredData.filter(item => new Date(item.applyTime) <= endDate);
+            }
+            
+            if (applyNo) {
+                filteredData = filteredData.filter(item => item.applyNo.includes(applyNo));
+            }
+            
+            renderRecordTable(filteredData);
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('recordModal');
+            modal.style.display = 'none';
+        }
+
+        function showDetailModal() {
+            const modal = document.getElementById('detailModal');
+            modal.style.display = 'flex';
+            const tbody = document.getElementById('detailModalBody');
+            tbody.innerHTML = '';
+            detailData.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${item.handleResult}</td>
+                    <td>${item.billTime}</td>
+                    <td>${item.doctor}</td>
+                    <td>${item.feeName}</td>
+                    <td>${item.qty}</td>
+                    <td>${item.price.toFixed(2)}</td>
+                    <td>${item.totalAmount.toFixed(2)}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function closeDetailModal() {
+            const modal = document.getElementById('detailModal');
+            modal.style.display = 'none';
+        }
+
+        function printDetail() {
+            alert('打印功能已触发，正在打印明细...');
+        }
+    </script>
+</body>
+</html>
